@@ -62,3 +62,16 @@ services:
       SPARK_MODE: master
       SPARK_MASTER_HOST: spark
       SPARK_MASTER_PORT: 7077
+
+  ml-trainer:
+    build:
+      context: .
+      dockerfile: Dockerfile.model
+    volumes:
+      - ./model:/app/model
+      - ./sentiment_dataset.csv:/app/sentiment_dataset.csv
+    environment:
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - kafka
+      - elasticsearch
