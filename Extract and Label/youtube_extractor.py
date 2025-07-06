@@ -10,7 +10,7 @@ API_KEY = "AIzaSyDwA6fLtCQINpqSPkp-DUD-lqj7c-dfpYw"  # 🔑 Replace with your ow
 KEYWORDS = ["malaysia obesity rise", "malaysia cancer", "malaysia lifestyle", "malaysia brawl case", "malaysia killing crime" ]
 MAX_VIDEO_RESULTS = 20     # How many videos to fetch
 MAX_COMMENTS_PER_VIDEO = 500  # Comments per video
-CSV_FILE = "youtube_comments2.csv"
+CSV_FILE = "../data/youtube_comments2.csv"
 
 # === YouTube API Client ===
 youtube = build("youtube", "v3", developerKey=API_KEY)

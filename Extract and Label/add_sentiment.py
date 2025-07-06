@@ -2,8 +2,8 @@ import pandas as pd
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, pipeline
 
 # === CONFIG ===
-CSV_INPUT = "youtube_comments_no_label.csv"
-CSV_OUTPUT_PREFIX = "youtube_comments_sentiment_chunk"
+CSV_INPUT = "../data/youtube_comments_no_label.csv"
+CSV_OUTPUT_PREFIX = "../data/youtube_comments_sentiment_chunk"
 MODEL_NAME = "cardiffnlp/twitter-roberta-base-sentiment"
 BATCH_SIZE = 32
 CHUNK_SIZE = 10_000  # Process 10k records at a time

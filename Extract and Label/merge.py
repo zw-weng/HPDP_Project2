@@ -2,8 +2,8 @@ import pandas as pd
 
 # === CONFIG ===
 CHUNK_COUNT = 11
-CSV_OUTPUT = "youtube_comments.csv"
-CSV_PREFIX = "youtube_comments_sentiment_chunk"
+CSV_OUTPUT = "../data/youtube_comments.csv"
+CSV_PREFIX = "../data/youtube_comments_sentiment_chunk"
 
 # === Merge Chunks ===
 df_list = []

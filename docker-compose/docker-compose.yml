@@ -58,6 +58,7 @@ services:
       - "8080:8080"  # Spark UI
     volumes:
       - ./:/opt/bitnami/spark/work
+      - ../data:/opt/bitnami/spark/work/data
     environment:
       SPARK_MODE: master
       SPARK_MASTER_HOST: spark
@@ -69,7 +70,7 @@ services:
       dockerfile: Dockerfile.model
     volumes:
       - ./model:/app/model
-      - ./sentiment_dataset.csv:/app/sentiment_dataset.csv
+      - ../data:/app/data
     environment:
       - PYTHONUNBUFFERED=1
     depends_on:

@@ -15,10 +15,9 @@ RUN pip install --no-cache-dir -r requirements_model.txt
 
 # Copy application files
 COPY model.py /app/
-COPY sentiment_dataset.csv /app/
 
-# Create model directory
-RUN mkdir -p /app/model
+# Create data and model directories
+RUN mkdir -p /app/data /app/model
 
 # Set environment variables for matplotlib (for headless plotting)
 ENV MPLBACKEND=Agg

@@ -15,13 +15,13 @@ spark = SparkSession.builder \
 
 spark.sparkContext.setLogLevel("WARN")
 
-# Load vectorizer and SVM model
+# Load vectorizer and model
 vectorizer = joblib.load("/opt/bitnami/spark/work/model/tfidf_vectorizer.pkl")
-svm_model = joblib.load("/opt/bitnami/spark/work/model/svm_sentiment_model.pkl")
+sentiment_model = joblib.load("/opt/bitnami/spark/work/model/logistic_regression_classifier.pkl")
 
 # Broadcast both
 vectorizer_broadcast = spark.sparkContext.broadcast(vectorizer)
-svm_model_broadcast = spark.sparkContext.broadcast(svm_model)
+sentiment_model_broadcast = spark.sparkContext.broadcast(sentiment_model)
 
 # Kafka JSON schema
 schema = StructType([
@@ -51,7 +51,7 @@ def predict_sentiment(text):
     if text and len(text.strip()) > 2:
         try:
             X_vec = vectorizer_broadcast.value.transform([text])
-            prediction = svm_model_broadcast.value.predict(X_vec)
+            prediction = sentiment_model_broadcast.value.predict(X_vec)
             label = "POSITIVE" if prediction[0] == 1 else "NEGATIVE"
             return label
         except Exception as e:

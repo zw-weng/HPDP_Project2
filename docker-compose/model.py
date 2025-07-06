@@ -28,9 +28,29 @@ plt.style.use('default')
 sns.set_palette("husl")
 
 class SentimentAnalysisMLComparison:
-    def __init__(self, data_path="sentiment_dataset.csv"):
+    def __init__(self, data_path=None):
         """Initialize the sentiment analysis comparison class"""
-        self.data_path = data_path
+        # Try YouTube dataset first, then fall back to sentiment dataset
+        if data_path is None:
+            # Check if running in Docker container (data mounted at /app/data)
+            if os.path.exists("/app/data"):
+                youtube_data = "/app/data/youtube_comments.csv"
+                fallback_data = "/app/data/sentiment_dataset.csv"
+            else:
+                # Local development paths
+                youtube_data = "../data/youtube_comments.csv"
+                fallback_data = "../data/sentiment_dataset.csv"
+            
+            if os.path.exists(youtube_data):
+                self.data_path = youtube_data
+                logger.info("Using YouTube comments dataset for training")
+            elif os.path.exists(fallback_data):
+                self.data_path = fallback_data
+                logger.info("YouTube dataset not found, using fallback sentiment dataset")
+            else:
+                raise FileNotFoundError("Neither YouTube comments nor sentiment dataset found")
+        else:
+            self.data_path = data_path
         self.df = None
         self.X_train = None
         self.X_test = None
@@ -53,7 +73,7 @@ class SentimentAnalysisMLComparison:
             logger.info(f"Dataset loaded successfully. Shape: {self.df.shape}")
             
             # Check for required columns
-            if 'text' not in self.df.columns:
+            if 'text' not in self.df.columns or ('label' not in self.df.columns and 'sentiment' not in self.df.columns):
                 # Try different column names
                 text_cols = ['comment_text', 'Comment', 'text', 'review']
                 label_cols = ['label', 'sentiment', 'Sentiment', 'rating']
@@ -75,6 +95,9 @@ class SentimentAnalysisMLComparison:
                     self.df = self.df[[text_col, label_col]].rename(columns={text_col: 'text', label_col: 'label'})
                 else:
                     raise ValueError(f"Could not find text and label columns. Available columns: {self.df.columns.tolist()}")
+            elif 'sentiment' in self.df.columns and 'label' not in self.df.columns:
+                # Rename sentiment to label for consistency
+                self.df = self.df.rename(columns={'sentiment': 'label'})
             
             # Clean the data
             self.df = self.df[['text', 'label']].dropna()
@@ -190,6 +213,16 @@ class SentimentAnalysisMLComparison:
         model_path = f"model/best_sentiment_model_{best_model_name.replace(' ', '_').lower()}.pkl"
         joblib.dump(best_pipeline, model_path)
         
+        # Extract and save the TF-IDF vectorizer separately for Spark streaming
+        tfidf_vectorizer = best_pipeline.named_steps['tfidf']
+        vectorizer_path = "model/tfidf_vectorizer.pkl"
+        joblib.dump(tfidf_vectorizer, vectorizer_path)
+        
+        # Extract and save the classifier separately
+        classifier = best_pipeline.named_steps['classifier']
+        classifier_path = f"model/{best_model_name.replace(' ', '_').lower()}_classifier.pkl"
+        joblib.dump(classifier, classifier_path)
+        
         # Save model metadata
         metadata = {
             'model_name': best_model_name,
@@ -198,7 +231,9 @@ class SentimentAnalysisMLComparison:
             'precision': self.results['Precision'][best_idx],
             'recall': self.results['Recall'][best_idx],
             'training_time': self.results['Training_Time'][best_idx],
-            'model_path': model_path
+            'model_path': model_path,
+            'vectorizer_path': vectorizer_path,
+            'classifier_path': classifier_path
         }
         
         import json
@@ -206,6 +241,8 @@ class SentimentAnalysisMLComparison:
             json.dump(metadata, f, indent=2)
         
         logger.info(f"Best model ({best_model_name}) saved to {model_path}")
+        logger.info(f"TF-IDF vectorizer saved to {vectorizer_path}")
+        logger.info(f"Classifier saved to {classifier_path}")
         logger.info(f"Best model accuracy: {self.results['Accuracy'][best_idx]:.4f}")
         
         return best_model_name, model_path
@@ -335,7 +372,7 @@ def main():
     """Main function to run the sentiment analysis comparison"""
     try:
         # Initialize the analysis
-        analyzer = SentimentAnalysisMLComparison("sentiment_dataset.csv")
+        analyzer = SentimentAnalysisMLComparison()  # Will auto-detect best available dataset
         
         # Run the complete analysis
         results = analyzer.run_full_analysis()
