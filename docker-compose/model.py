@@ -7,7 +7,9 @@ import seaborn as sns
 import time
 import joblib
 import warnings
-from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
+import re
+import string
+from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.preprocessing import LabelEncoder
 from sklearn.pipeline import Pipeline
@@ -105,6 +107,13 @@ class SentimentAnalysisMLComparison:
             # Remove empty texts
             self.df = self.df[self.df['text'].str.strip() != '']
             
+            # Enhanced text preprocessing
+            logger.info("Applying enhanced text preprocessing...")
+            self.df['text'] = self.df['text'].apply(self.clean_text)
+            
+            # Remove very short texts (less than 3 characters)
+            self.df = self.df[self.df['text'].str.len() >= 3]
+            
             logger.info(f"Data after cleaning. Shape: {self.df.shape}")
             logger.info(f"Label distribution:\n{self.df['label'].value_counts()}")
             
@@ -113,6 +122,37 @@ class SentimentAnalysisMLComparison:
         except Exception as e:
             logger.error(f"Error loading data: {e}")
             raise
+    
+    def clean_text(self, text):
+        """Enhanced text cleaning function"""
+        if pd.isna(text):
+            return ""
+        
+        # Convert to string and lowercase
+        text = str(text).lower()
+        
+        # Remove URLs
+        text = re.sub(r'http\S+|www\S+|https\S+', '', text, flags=re.MULTILINE)
+        
+        # Remove HTML tags
+        text = re.sub(r'<.*?>', '', text)
+        
+        # Remove user mentions and hashtags
+        text = re.sub(r'@\w+|#\w+', '', text)
+        
+        # Remove extra whitespace and newlines
+        text = re.sub(r'\s+', ' ', text)
+        
+        # Remove punctuation but keep some meaningful ones
+        text = re.sub(r'[^\w\s!?.,]', '', text)
+        
+        # Remove numbers (optional - depends on your use case)
+        text = re.sub(r'\d+', '', text)
+        
+        # Remove extra spaces
+        text = text.strip()
+        
+        return text
     
     def split_data(self, test_size=0.2, random_state=42):
         """Split data into training and testing sets"""
@@ -160,7 +200,13 @@ class SentimentAnalysisMLComparison:
             
             # Create pipeline with TF-IDF vectorizer
             pipeline = Pipeline([
-                ('tfidf', TfidfVectorizer(stop_words='english', max_features=5000, ngram_range=(1, 2))),
+                ('tfidf', TfidfVectorizer(
+                    stop_words='english', 
+                    max_features=10000,
+                    ngram_range=(1, 2),
+                    min_df=2,
+                    max_df=0.95
+                )),
                 ('classifier', model)
             ])
             
@@ -202,6 +248,7 @@ class SentimentAnalysisMLComparison:
         # Convert results to DataFrame
         self.results_df = pd.DataFrame(self.results)
         logger.info("Model training and evaluation completed!")
+
         
     def save_best_model(self):
         """Save the best performing model"""
@@ -247,77 +294,141 @@ class SentimentAnalysisMLComparison:
         
         return best_model_name, model_path
         
-    def create_visualizations(self):
-        """Create comprehensive visualizations comparing the two models"""
-        logger.info("Creating visualizations...")
+    def create_metrics_comparison(self):
+        """Create comprehensive sentiment analysis comparison with all metrics"""
+        logger.info("Creating sentiment analysis comparison visualization...")
         
-        # Set up the figure with subplots (2x2 layout for 2 models)
-        fig = plt.figure(figsize=(16, 12))
-        fig.suptitle('Sentiment Analysis Model Comparison: Logistic Regression vs Naive Bayes', fontsize=16, fontweight='bold')
+        # Set up the figure with subplots (2x3 layout)
+        fig, axes = plt.subplots(2, 3, figsize=(18, 12))
+        fig.suptitle('Sentiment Analysis Model Performance Comparison', fontsize=16, fontweight='bold')
         
-        # 1. Model Accuracy Comparison
-        ax1 = plt.subplot(2, 2, 1)
-        bars1 = ax1.bar(self.results_df['Model'], self.results_df['Accuracy'], 
-                       color=['#ff9999', '#66b3ff'])
-        ax1.set_title('Model Accuracy Comparison', fontsize=14, fontweight='bold')
-        ax1.set_xlabel('Models')
+        # Define colors for consistent visualization
+        colors = ['#FF6B6B', '#4ECDC4']
+        
+        # 1. Accuracy Comparison
+        ax1 = axes[0, 0]
+        bars1 = ax1.bar(self.results_df['Model'], self.results_df['Accuracy'], color=colors)
+        ax1.set_title('Model Accuracy', fontsize=14, fontweight='bold')
         ax1.set_ylabel('Accuracy')
         ax1.set_ylim(0, 1)
-        
-        # Add value labels on bars
         for bar in bars1:
             height = bar.get_height()
             ax1.text(bar.get_x() + bar.get_width()/2., height + 0.01,
-                    f'{height:.3f}', ha='center', va='bottom', fontsize=12, fontweight='bold')
+                    f'{height:.3f}', ha='center', va='bottom', fontweight='bold')
         
-        # 2. F1-Score Comparison
-        ax2 = plt.subplot(2, 2, 2)
-        bars2 = ax2.bar(self.results_df['Model'], self.results_df['F1_Score'], 
-                       color=['#99ff99', '#ffcc99'])
-        ax2.set_title('F1-Score Comparison', fontsize=14, fontweight='bold')
-        ax2.set_xlabel('Models')
-        ax2.set_ylabel('F1 Score')
+        # 2. Precision Comparison
+        ax2 = axes[0, 1]
+        bars2 = ax2.bar(self.results_df['Model'], self.results_df['Precision'], color=colors)
+        ax2.set_title('Model Precision', fontsize=14, fontweight='bold')
+        ax2.set_ylabel('Precision')
         ax2.set_ylim(0, 1)
-        
-        # Add value labels on bars
         for bar in bars2:
             height = bar.get_height()
             ax2.text(bar.get_x() + bar.get_width()/2., height + 0.01,
-                    f'{height:.3f}', ha='center', va='bottom', fontsize=12, fontweight='bold')
+                    f'{height:.3f}', ha='center', va='bottom', fontweight='bold')
         
-        # 3. Training Time Comparison
-        ax3 = plt.subplot(2, 2, 3)
-        bars3 = ax3.bar(self.results_df['Model'], self.results_df['Training_Time'], 
-                       color=['#ff99cc', '#c2c2f0'])
-        ax3.set_title('Training Time Comparison', fontsize=14, fontweight='bold')
-        ax3.set_xlabel('Models')
-        ax3.set_ylabel('Time (seconds)')
-        
-        # Add value labels on bars
+        # 3. Recall Comparison
+        ax3 = axes[0, 2]
+        bars3 = ax3.bar(self.results_df['Model'], self.results_df['Recall'], color=colors)
+        ax3.set_title('Model Recall', fontsize=14, fontweight='bold')
+        ax3.set_ylabel('Recall')
+        ax3.set_ylim(0, 1)
         for bar in bars3:
             height = bar.get_height()
             ax3.text(bar.get_x() + bar.get_width()/2., height + 0.01,
-                    f'{height:.3f}s', ha='center', va='bottom', fontsize=12, fontweight='bold')
+                    f'{height:.3f}', ha='center', va='bottom', fontweight='bold')
         
-        # 4. Training Data Label Distribution
-        ax4 = plt.subplot(2, 2, 4)
+        # 4. F1-Score Comparison
+        ax4 = axes[1, 0]
+        bars4 = ax4.bar(self.results_df['Model'], self.results_df['F1_Score'], color=colors)
+        ax4.set_title('Model F1-Score', fontsize=14, fontweight='bold')
+        ax4.set_ylabel('F1-Score')
+        ax4.set_ylim(0, 1)
+        for bar in bars4:
+            height = bar.get_height()
+            ax4.text(bar.get_x() + bar.get_width()/2., height + 0.01,
+                    f'{height:.3f}', ha='center', va='bottom', fontweight='bold')
+        
+        # 5. Training Time Comparison
+        ax5 = axes[1, 1]
+        bars5 = ax5.bar(self.results_df['Model'], self.results_df['Training_Time'], color=colors)
+        ax5.set_title('Training Time Comparison', fontsize=14, fontweight='bold')
+        ax5.set_ylabel('Time (seconds)')
+        for bar in bars5:
+            height = bar.get_height()
+            ax5.text(bar.get_x() + bar.get_width()/2., height + 0.01,
+                    f'{height:.1f}s', ha='center', va='bottom', fontweight='bold')
+        
+        # 6. Training Data Label Distribution
+        ax6 = axes[1, 2]
         label_counts = self.df['label'].value_counts()
-        colors = ['#ff9999', '#66b3ff', '#99ff99'][:len(label_counts)]
-        wedges, texts, autotexts = ax4.pie(label_counts.values, labels=label_counts.index, 
-                                         autopct='%1.1f%%', startangle=90, colors=colors)
-        ax4.set_title('Training Data Label Distribution', fontsize=14, fontweight='bold')
+        colors_pie = ['#FF6B6B', '#4ECDC4', '#45B7D1'][:len(label_counts)]
+        wedges, texts, autotexts = ax6.pie(label_counts.values, labels=label_counts.index, 
+                                         autopct='%1.1f%%', startangle=90, colors=colors_pie)
+        ax6.set_title('Training Data Distribution', fontsize=14, fontweight='bold')
         
         # Adjust layout and save
         plt.tight_layout()
         plt.savefig('model/sentiment_analysis_comparison.png', dpi=300, bbox_inches='tight')
-        plt.close()  # Close the figure to free memory
+        plt.close()
         
-        logger.info("Visualizations saved to 'model/sentiment_analysis_comparison.png'")
+        logger.info("Sentiment analysis comparison saved to 'model/sentiment_analysis_comparison.png'")
+        
+    def create_confusion_matrices(self):
+        """Create confusion matrix visualization for both models"""
+        logger.info("Creating confusion matrices visualization...")
+        
+        # Get unique labels for consistency
+        unique_labels = sorted(self.df['label'].unique())
+        
+        # Set up the figure with subplots
+        fig, axes = plt.subplots(1, 2, figsize=(15, 6))
+        fig.suptitle('Confusion Matrices - Model Performance Comparison', fontsize=16, fontweight='bold')
+        
+        for idx, (name, pipeline) in enumerate(self.trained_pipelines.items()):
+            # Get predictions
+            y_pred = pipeline.predict(self.X_test)
+            
+            # Create confusion matrix
+            cm = confusion_matrix(self.y_test, y_pred, labels=unique_labels)
+            
+            # Create heatmap
+            ax = axes[idx]
+            sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
+                       xticklabels=unique_labels, yticklabels=unique_labels,
+                       ax=ax, cbar=True)
+            ax.set_title(f'{name}', fontsize=14, fontweight='bold')
+            ax.set_xlabel('Predicted Label')
+            ax.set_ylabel('True Label')
+            
+            # Add accuracy score to the plot
+            accuracy = accuracy_score(self.y_test, y_pred)
+            ax.text(0.5, -0.1, f'Accuracy: {accuracy:.3f}', 
+                   transform=ax.transAxes, ha='center', fontweight='bold')
+        
+        # Adjust layout and save
+        plt.tight_layout()
+        plt.savefig('model/confusion_matrices.png', dpi=300, bbox_inches='tight')
+        plt.close()
+        
+        logger.info("Confusion matrices saved to 'model/confusion_matrices.png'")
+    
+    def create_visualizations(self):
+        """Create all visualizations"""
+        logger.info("Creating all visualizations...")
+        
+        # Create main sentiment analysis comparison (includes precision and recall)
+        self.create_metrics_comparison()
+        
+        # Create confusion matrices
+        self.create_confusion_matrices()
+        
+        logger.info("All visualizations completed!")
         
     def print_detailed_results(self):
         """Print detailed results for all models"""
         logger.info("\n" + "="*80)
-        logger.info("DETAILED MODEL COMPARISON RESULTS")
+        logger.info("DETAILED MODEL COMPARISON RESULTS (with SMOTE)")
         logger.info("="*80)
         
         # Sort by accuracy for better presentation
@@ -337,7 +448,7 @@ class SentimentAnalysisMLComparison:
         
     def run_full_analysis(self):
         """Run the complete sentiment analysis comparison"""
-        logger.info("Starting comprehensive sentiment analysis model comparison...")
+        logger.info("Starting comprehensive sentiment analysis model comparison with SMOTE...")
         
         # Load and preprocess data
         self.load_and_preprocess_data()
@@ -363,7 +474,9 @@ class SentimentAnalysisMLComparison:
         logger.info("\n🎉 Analysis completed successfully!")
         logger.info(f"Best model: {best_model_name}")
         logger.info(f"Model saved to: {model_path}")
-        logger.info("Visualizations saved to: model/sentiment_analysis_comparison.png")
+        logger.info("Visualizations saved to:")
+        logger.info("  - model/sentiment_analysis_comparison.png (with precision & recall)")
+        logger.info("  - model/confusion_matrices.png")
         
         return self.results_df
 
