@@ -2,11 +2,14 @@ from googleapiclient.discovery import build
 import pandas as pd
 import time
 import os
+
 from langdetect import detect
 from langdetect.lang_detect_exception import LangDetectException
 
 # === CONFIGURATION ===
-API_KEY = "AIzaSyDwA6fLtCQINpqSPkp-DUD-lqj7c-dfpYw"  # 🔑 Replace with your own
+API_KEY = os.getenv("YOUTUBE_API_KEY")  # Load from environment variable
+if not API_KEY:
+    raise ValueError("YOUTUBE_API_KEY environment variable not set. Please set your API key in the environment.")
 KEYWORDS = ["malaysia obesity rise", "malaysia cancer", "malaysia lifestyle", "malaysia brawl case", "malaysia killing crime" ]
 MAX_VIDEO_RESULTS = 20     # How many videos to fetch
 MAX_COMMENTS_PER_VIDEO = 500  # Comments per video

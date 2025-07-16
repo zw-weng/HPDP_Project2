@@ -428,7 +428,7 @@ class SentimentAnalysisMLComparison:
     def print_detailed_results(self):
         """Print detailed results for all models"""
         logger.info("\n" + "="*80)
-        logger.info("DETAILED MODEL COMPARISON RESULTS (with SMOTE)")
+        logger.info("DETAILED MODEL COMPARISON RESULTS")
         logger.info("="*80)
         
         # Sort by accuracy for better presentation
@@ -448,7 +448,7 @@ class SentimentAnalysisMLComparison:
         
     def run_full_analysis(self):
         """Run the complete sentiment analysis comparison"""
-        logger.info("Starting comprehensive sentiment analysis model comparison with SMOTE...")
+        logger.info("Starting comprehensive sentiment analysis model comparison...")
         
         # Load and preprocess data
         self.load_and_preprocess_data()
